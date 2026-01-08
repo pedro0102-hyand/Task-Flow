@@ -4,7 +4,7 @@ class Task:
 
     def __init__(self, task_id, title, priority):
 
-        self.id = id # chave no dicionario
+        self.id = task_id # chave no dicionario
         self.title = title
         self.priority = priority
         self.status = TaskStatus.BACKLOG # status inicial no backlog

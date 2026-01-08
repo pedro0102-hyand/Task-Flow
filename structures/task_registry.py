@@ -12,6 +12,6 @@ class TaskRegistry:
 
         return self.tasks.get(task_id)
     
-    def all_task(self):
+    def all_tasks(self):
 
         return list(self.tasks.values())
