@@ -1,6 +1,6 @@
 from core.enums import TaskStatus
 
-class Workflowservice:
+class WorkflowService:
 
     def can_start(self, task):
 
