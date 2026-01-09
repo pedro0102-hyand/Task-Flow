@@ -46,25 +46,25 @@ class TaskService:
             task.dependencies.add(depends_on_id)
 
     def start_task(self):
-        # Ordena as tarefas por prioridade antes de tentar iniciar
+        
         tasks = sort_by_priority(self.registry.all_tasks())
 
         for task in tasks:
-            # Melhoria: Passa o 'registry' para o workflow validar se dependências estão DONE
+            # O workflow agora impede o início se houver outra tarefa IN_PROGRESS
             if self.workflow.can_start(task, self.registry):
                 task.status = TaskStatus.IN_PROGRESS
                 self.queue.enqueue(task)
 
                 def undo():
-                    # Reverte o estado e retira a lógica de execução
                     task.status = TaskStatus.BACKLOG
-                    # Nota: Em sistemas complexos, removeria especificamente este item da TaskQueue
+                    # Como só há uma tarefa por vez, o dequeue limpa a fila corretamente
+                    self.queue.dequeue() 
 
                 self.history.record(undo)
                 print(f"Iniciando {task}")
                 return
         
-        print("Nenhuma tarefa disponível para iniciar (bloqueada por dependências ou sem tarefas no Backlog).")
+        print("Aviso: Não foi possível iniciar tarefa. Motivo: Dependências pendentes ou já existe uma tarefa em execução.")
 
     def finish_task(self):
         # Remove a tarefa da fila de execução (FIFO)
