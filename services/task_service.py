@@ -8,68 +8,78 @@ from algorithms.dependency_graph import DependencyGraph
 from algorithms.sorting import sort_by_priority
 from utils.id_generator import generate_id
 
-# define e centraliza regras do sistema
+# Define e centraliza as regras do sistema
 class TaskService:
 
     def __init__(self):
-        self.registry = TaskRegistry() # dicionario de registro das tarefas
-        self.queue = TaskQueue() # fila de execucao
-        self.workflow = WorkflowService()
-        self.history = HistoryService()
-        self.dependencies = DependencyGraph()
+        self.registry = TaskRegistry() # Dicionário de registro das tarefas
+        self.queue = TaskQueue() # Fila de execução
+        self.workflow = WorkflowService() # Serviço de regras de transição
+        self.history = HistoryService() # Pilha de histórico para undo
+        self.dependencies = DependencyGraph() # Grafo para detectar ciclos
 
     def create_task(self, title, priority):
-        task = Task(generate_id(), title, priority)
+        # Melhoria: Gera um ID amigável usando as primeiras 3 letras do título como prefixo
+        prefix = title[:3].upper()
+        task_id = generate_id(prefix=prefix)
+        
+        task = Task(task_id, title, priority)
         self.registry.add(task)
 
         def undo():
-            del self.registry.tasks[task.id] # remove task
+            # Remove a tarefa do registro em caso de desfazer
+            del self.registry.tasks[task.id]
 
         self.history.record(undo)
         return task
 
     def add_dependency(self, task_id, depends_on_id):
+        # Adiciona no grafo de algoritmos para checar ciclos
         self.dependencies.add_dependency(task_id, depends_on_id)
 
         if self.dependencies.has_cycle():
             raise Exception("Dependência cíclica detectada!")
 
-        self.registry.get(task_id).dependencies.add(depends_on_id)
+        # Adiciona a dependência no objeto da tarefa para consulta de status
+        task = self.registry.get(task_id)
+        if task:
+            task.dependencies.add(depends_on_id)
 
     def start_task(self):
-        # Ordena por prioridade antes de tentar iniciar
+        # Ordena as tarefas por prioridade antes de tentar iniciar
         tasks = sort_by_priority(self.registry.all_tasks())
 
         for task in tasks:
-            # Agora passa o registry para validar dependências internamente
+            # Melhoria: Passa o 'registry' para o workflow validar se dependências estão DONE
             if self.workflow.can_start(task, self.registry):
                 task.status = TaskStatus.IN_PROGRESS
                 self.queue.enqueue(task)
 
                 def undo():
-                    # reverter o estado atual
+                    # Reverte o estado e retira a lógica de execução
                     task.status = TaskStatus.BACKLOG
-                    # Nota: Em uma implementação real, também removeria da fila
+                    # Nota: Em sistemas complexos, removeria especificamente este item da TaskQueue
 
-                # registrar o estado
                 self.history.record(undo)
                 print(f"Iniciando {task}")
                 return
         
-        print("Nenhuma tarefa disponível para iniciar (todas bloqueadas ou já em progresso).")
+        print("Nenhuma tarefa disponível para iniciar (bloqueada por dependências ou sem tarefas no Backlog).")
 
     def finish_task(self):
-        task = self.queue.dequeue() # remove task da fila
+        # Remove a tarefa da fila de execução (FIFO)
+        task = self.queue.dequeue()
 
-        # proteger contra erros de estado
+        # Valida se a tarefa pode ser finalizada (deve estar IN_PROGRESS)
         if not task or not self.workflow.can_finish(task):
+            print("Não há tarefas em progresso para finalizar.")
             return
 
-        # definindo como concluido
+        # Define como concluído
         task.status = TaskStatus.DONE
 
         def undo():
-            # volta e reinsere na fila
+            # Reverte para progresso e reinsere na fila
             task.status = TaskStatus.IN_PROGRESS
             self.queue.enqueue(task)
 
@@ -77,4 +87,5 @@ class TaskService:
         print(f"Finalizando {task}")
 
     def undo_last_action(self):
+        # Executa a última função de desfazer armazenada no HistoryService
         self.history.undo()
