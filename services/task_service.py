@@ -12,7 +12,6 @@ from utils.id_generator import generate_id
 class TaskService:
 
     def __init__(self):
-
         self.registry = TaskRegistry() # dicionario de registro das tarefas
         self.queue = TaskQueue() # fila de execucao
         self.workflow = WorkflowService()
@@ -20,7 +19,6 @@ class TaskService:
         self.dependencies = DependencyGraph()
 
     def create_task(self, title, priority):
-
         task = Task(generate_id(), title, priority)
         self.registry.add(task)
 
@@ -31,7 +29,6 @@ class TaskService:
         return task
 
     def add_dependency(self, task_id, depends_on_id):
-
         self.dependencies.add_dependency(task_id, depends_on_id)
 
         if self.dependencies.has_cycle():
@@ -40,29 +37,28 @@ class TaskService:
         self.registry.get(task_id).dependencies.add(depends_on_id)
 
     def start_task(self):
-
+        # Ordena por prioridade antes de tentar iniciar
         tasks = sort_by_priority(self.registry.all_tasks())
 
         for task in tasks:
-
-            if self.workflow.can_start(task):
-
+            # Agora passa o registry para validar dependências internamente
+            if self.workflow.can_start(task, self.registry):
                 task.status = TaskStatus.IN_PROGRESS
                 self.queue.enqueue(task)
 
-
                 def undo():
-                    
                     # reverter o estado atual
                     task.status = TaskStatus.BACKLOG
+                    # Nota: Em uma implementação real, também removeria da fila
 
                 # registrar o estado
                 self.history.record(undo)
                 print(f"Iniciando {task}")
                 return
+        
+        print("Nenhuma tarefa disponível para iniciar (todas bloqueadas ou já em progresso).")
 
     def finish_task(self):
-
         task = self.queue.dequeue() # remove task da fila
 
         # proteger contra erros de estado
@@ -73,7 +69,6 @@ class TaskService:
         task.status = TaskStatus.DONE
 
         def undo():
-
             # volta e reinsere na fila
             task.status = TaskStatus.IN_PROGRESS
             self.queue.enqueue(task)
@@ -82,5 +77,4 @@ class TaskService:
         print(f"Finalizando {task}")
 
     def undo_last_action(self):
-
         self.history.undo()
