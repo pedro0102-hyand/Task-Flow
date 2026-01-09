@@ -1,5 +1,5 @@
 from core.task import Task
-from core.enums import TaskStatus
+from core.enums import TaskStatus, TaskPriority
 from structures.task_queue import TaskQueue
 from structures.task_registry import TaskRegistry
 from services.workflow_service import WorkflowService
@@ -18,7 +18,7 @@ class TaskService:
         self.history = HistoryService() # Pilha de histórico para undo
         self.dependencies = DependencyGraph() # Grafo para detectar ciclos
 
-    def create_task(self, title, priority, parent_id=None):
+    def create_task(self, title, priority: TaskPriority, parent_id=None):
 
         prefix = title[:3].upper()
         task_id = generate_id(prefix=prefix)
